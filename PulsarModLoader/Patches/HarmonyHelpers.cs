@@ -1,10 +1,11 @@
-﻿using HarmonyLib;
-using PulsarModLoader.Utilities;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
+using HarmonyLib;
+using PulsarModLoader.Utilities;
 
 namespace PulsarModLoader.Patches
 {
@@ -24,45 +25,91 @@ namespace PulsarModLoader.Patches
         /// <param name="showDebugOutput"></param>
         /// <returns>Modified instructions based on input values</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static IEnumerable<CodeInstruction> PatchBySequence(IEnumerable<CodeInstruction> instructions, IEnumerable<CodeInstruction> targetSequence, IEnumerable<CodeInstruction> patchSequence, PatchMode patchMode = PatchMode.AFTER, CheckMode checkMode = CheckMode.ALWAYS, bool showDebugOutput = false)
+        /// <summary>
+        /// Modifies instructions targetSequence with patchSequence based on input PatchMode and CheckMode.
+        /// </summary>
+        /// <param name="instructions">Input pre-modified Transpiler Instructions here</param>
+        /// <param name="targetSequence">Targeted Instructions collection</param>
+        /// <param name="patchSequence">Inserted Instructions collection</param>
+        /// <param name="patchMode"></param>
+        /// <param name="checkMode"></param>
+        /// <param name="showDebugOutput"></param>
+        /// <returns>Modified instructions based on input values</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static IEnumerable<CodeInstruction> PatchBySequence(
+            IEnumerable<CodeInstruction> instructions,
+            IEnumerable<CodeInstruction> targetSequence,
+            IEnumerable<CodeInstruction> patchSequence,
+            PatchMode patchMode = PatchMode.AFTER,
+            CheckMode checkMode = CheckMode.ALWAYS,
+            bool showDebugOutput = false
+        )
         {
-            List<CodeInstruction> Instructions = instructions.ToList(); //create new list to be modified and returned.
+            List<CodeInstruction> Instructions = instructions.ToList(); // Create new list to be modified and returned.
+            List<CodeInstruction> TargetSequenceList = targetSequence.ToList();
+            int targetSize = TargetSequenceList.Count;
 
-            CodeInstruction targetStart = targetSequence.ElementAt(0);
-            int targetSize = targetSequence.Count();
-
-            for (int i = 0; i < Instructions.Count; i++) //Check every Instruction in the given list if it is the correct Instruction set
+            for (int i = 0; i < Instructions.Count; i++) // Check every Instruction in the given list
             {
-                bool targetSequenceStillFits = i + targetSize <= Instructions.Count; //calculate if target sequence fits in Instructions.
+                bool targetSequenceStillFits = i + targetSize <= Instructions.Count; // Calculate if target sequence fits in Instructions.
 
-                if (targetSequenceStillFits) //stop if not enough lines capable of fitting target sequence
+                if (targetSequenceStillFits) // Stop if not enough lines capable of fitting target sequence
                 {
                     bool foundTargetSequence = true;
 
-                    for (int x = 0; x < targetSize && foundTargetSequence; x++) //compare each element of the new sequence to the old to see if it is the same. stop for loop early if the targetsequence
+                    for (int x = 0; x < targetSize && foundTargetSequence; x++) // Compare each element
                     {
-                        foundTargetSequence = Instructions[i + x].opcode.Equals(targetSequence.ElementAt(x).opcode);
-                        if (checkMode != CheckMode.NEVER)//if specified checking params are set appropriately, check opperand. CheckMode enum comes into play here.
+                        var instr = Instructions[i + x];
+                        var target = TargetSequenceList[x];
+
+                        // HarmonyX tolerance: allow branch opcode inversion
+                        if (
+                            (instr.opcode == OpCodes.Brtrue || instr.opcode == OpCodes.Brtrue_S)
+                                && (
+                                    target.opcode == OpCodes.Brfalse
+                                    || target.opcode == OpCodes.Brfalse_S
+                                )
+                            || (
+                                instr.opcode == OpCodes.Brfalse || instr.opcode == OpCodes.Brfalse_S
+                            )
+                                && (
+                                    target.opcode == OpCodes.Brtrue
+                                    || target.opcode == OpCodes.Brtrue_S
+                                )
+                        )
                         {
-                            foundTargetSequence = foundTargetSequence &&
-                            (
-                                ((Instructions[i + x].operand == null || checkMode == CheckMode.NONNULL) && targetSequence.ElementAt(x).operand == null) ||
-                                Instructions[i + x].operand.Equals(targetSequence.ElementAt(x).operand)
-                            );
+                            continue; // Skip opcode check for inverted branches
+                        }
+
+                        foundTargetSequence = instr.opcode.Equals(target.opcode);
+                        if (checkMode != CheckMode.NEVER) // If specified checking params are set appropriately, check operand
+                        {
+                            foundTargetSequence =
+                                foundTargetSequence
+                                && (
+                                    (
+                                        (instr.operand == null || checkMode == CheckMode.NONNULL)
+                                        && target.operand == null
+                                    )
+                                    || instr.operand?.Equals(target.operand) == true
+                                );
                         }
 
                         if (showDebugOutput && foundTargetSequence)
                         {
-                            Logger.Info($"Found {targetSequence.ElementAt(x).opcode} at {i + x}");
+                            Logger.Info($"Found {target.opcode} at {i + x}");
                         }
                     }
 
-                    if (foundTargetSequence) //If the TargetSequence was found in the Instructions, Replace at the i index.
+                    if (foundTargetSequence) // If the TargetSequence was found in the Instructions, apply patch
                     {
                         if (patchMode == PatchMode.BEFORE || patchMode == PatchMode.AFTER)
                         {
                             int indexToInsertAt = patchMode == PatchMode.AFTER ? i + targetSize : i;
-                            Instructions.InsertRange(indexToInsertAt, patchSequence.Select(c => c.FullClone()));
+                            Instructions.InsertRange(
+                                indexToInsertAt,
+                                patchSequence.Select(c => c.FullClone())
+                            );
                         }
                         else if (patchMode == PatchMode.REPLACE)
                         {
@@ -71,27 +118,28 @@ namespace PulsarModLoader.Patches
                         }
                         else
                         {
-                            throw new ArgumentException($"Argument PatchMode patchMode == {patchMode}; invalid value!");
+                            throw new ArgumentException(
+                                $"Argument PatchMode patchMode == {patchMode}; invalid value!"
+                            );
                         }
 
                         break;
                     }
                 }
-                else //if targetsequence didn't fit in what was left of array (couldn't find target sequence)
+                else // If target sequence didn't fit (couldn't find target sequence)
                 {
                     StringBuilder sb = new StringBuilder();
-
-                    sb.AppendLine($"Failed to patch by sequence: couldn't find target sequence.  This might be okay in certain cases.");
-
-                    // Cut down the stack trace because it's 20 lines of unhelpful reflection internals.
-                    // Show enough to figure out which mod + transpiler method is causing this:
+                    sb.AppendLine(
+                        $"Failed to patch by sequence: couldn't find target sequence. This might be okay in certain cases."
+                    );
                     sb.AppendLine($"Stack Trace:");
-                    string[] stackTrace = new System.Diagnostics.StackTrace().ToString().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                    string[] stackTrace = new System.Diagnostics.StackTrace()
+                        .ToString()
+                        .Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
                     for (int lineNumber = 0; lineNumber < 2; lineNumber++)
                     {
                         sb.AppendLine(stackTrace[lineNumber]);
                     }
-
                     Logger.Info(sb.ToString());
                     break;
                 }
@@ -108,7 +156,12 @@ namespace PulsarModLoader.Patches
         /// <param name="checkMode"></param>
         /// <param name="showDebugOutput"></param>
         /// <returns></returns>
-        public static int FindSequence(IEnumerable<CodeInstruction> instructions, IEnumerable<CodeInstruction> targetSequence, CheckMode checkMode = CheckMode.ALWAYS, bool showDebugOutput = false)
+        public static int FindSequence(
+            IEnumerable<CodeInstruction> instructions,
+            IEnumerable<CodeInstruction> targetSequence,
+            CheckMode checkMode = CheckMode.ALWAYS,
+            bool showDebugOutput = false
+        )
         {
             List<CodeInstruction> Instructions = instructions.ToList();
 
@@ -125,13 +178,20 @@ namespace PulsarModLoader.Patches
 
                     for (int x = 0; x < targetSize && foundTargetSequence; x++)
                     {
-                        foundTargetSequence = Instructions[i + x].opcode.Equals(targetSequence.ElementAt(x).opcode);
+                        foundTargetSequence = Instructions[i + x]
+                            .opcode.Equals(targetSequence.ElementAt(x).opcode);
                         if (checkMode != CheckMode.NEVER) //check that target sequence matches.
                         {
-                            foundTargetSequence = foundTargetSequence &&
-                                (
-                                    (Instructions[i + x].operand == null || checkMode == CheckMode.NONNULL) && targetSequence.ElementAt(x).operand == null ||
-                                    Instructions[i + x].operand.Equals(targetSequence.ElementAt(x).operand)
+                            foundTargetSequence =
+                                foundTargetSequence
+                                && (
+                                    (
+                                        Instructions[i + x].operand == null
+                                        || checkMode == CheckMode.NONNULL
+                                    )
+                                        && targetSequence.ElementAt(x).operand == null
+                                    || Instructions[i + x]
+                                        .operand.Equals(targetSequence.ElementAt(x).operand)
                                 );
                         }
 
@@ -150,12 +210,16 @@ namespace PulsarModLoader.Patches
                 {
                     StringBuilder sb = new StringBuilder();
 
-                    sb.AppendLine($"Couldn't find target sequence.  This might be okay in certain cases.");
+                    sb.AppendLine(
+                        $"Couldn't find target sequence.  This might be okay in certain cases."
+                    );
 
                     // Cut down the stack trace because it's 20 lines of unhelpful reflection internals.
                     // Show enough to figure out which mod + transpiler method is causing this:
                     sb.AppendLine($"Stack Trace:");
-                    string[] stackTrace = new System.Diagnostics.StackTrace().ToString().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                    string[] stackTrace = new System.Diagnostics.StackTrace()
+                        .ToString()
+                        .Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
                     for (int lineNumber = 0; lineNumber < 2; lineNumber++)
                     {
                         sb.AppendLine(stackTrace[lineNumber]);
@@ -169,13 +233,13 @@ namespace PulsarModLoader.Patches
             return -1;
         }
 
-
         public enum CheckMode
         {
             /// <summary>
             /// Target opperands ALWAYS need to match
             /// </summary>
             ALWAYS,
+
             /// <summary>
             /// Target opperands can be NULL to match. This is good if you don't know what to put in for 1 of multiple instruction operands.
             /// </summary>
@@ -214,10 +278,11 @@ namespace PulsarModLoader.Patches
                 ldarg.0
             */
             NONNULL,
+
             /// <summary>
             /// Target opperands NEVER need to match
             /// </summary>
-            NEVER
+            NEVER,
         }
 
         public enum PatchMode
@@ -226,14 +291,16 @@ namespace PulsarModLoader.Patches
             /// impliment new code BEFORE target code
             /// </summary>
             BEFORE,
+
             /// <summary>
             /// impliment new code AFTER target code
             /// </summary>
             AFTER,
+
             /// <summary>
             /// REPLACE target code with new code
             /// </summary>
-            REPLACE
+            REPLACE,
         }
 
         /// <summary>

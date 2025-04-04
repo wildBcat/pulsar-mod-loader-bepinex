@@ -1,10 +1,11 @@
-﻿using HarmonyLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection.Emit;
+using HarmonyLib;
+using PulsarModLoader.Patches;
 using UnityEngine;
-using static PulsarModLoader.Patches.HarmonyHelpers;
 using static PulsarModLoader.Chat.Extensions.ChatHelper;
+using static PulsarModLoader.Patches.HarmonyHelpers;
 
 namespace PulsarModLoader.Chat.Extensions
 {
@@ -106,7 +107,10 @@ namespace PulsarModLoader.Chat.Extensions
         {
             if (Input.GetKeyDown(KeyCode.LeftArrow))
             {
-                lastTimeLeft = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond + /*(SystemInformation.KeyboardDelay + 1) **/ 250;
+                lastTimeLeft =
+                    DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+                    + /*(SystemInformation.KeyboardDelay + 1) **/
+                    250;
                 if (cursorPos < chatText.Length)
                 {
                     if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
@@ -121,7 +125,10 @@ namespace PulsarModLoader.Chat.Extensions
             }
             if (Input.GetKeyDown(KeyCode.RightArrow))
             {
-                lastTimeRight = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond + /*(SystemInformation.KeyboardDelay + 1) **/ 250;
+                lastTimeRight =
+                    DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+                    + /*(SystemInformation.KeyboardDelay + 1) **/
+                    250;
                 if (cursorPos > 0)
                 {
                     if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
@@ -134,9 +141,14 @@ namespace PulsarModLoader.Chat.Extensions
                     }
                 }
             }
-            if (Input.GetKey(KeyCode.LeftArrow) && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeLeft)
+            if (
+                Input.GetKey(KeyCode.LeftArrow)
+                && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeLeft
+            )
             {
-                lastTimeLeft += 30 /*(long)(1 / ((SystemInformation.KeyboardSpeed + 1) * 0.859375))*/;
+                lastTimeLeft +=
+                    30 /*(long)(1 / ((SystemInformation.KeyboardSpeed + 1) * 0.859375))*/
+                ;
                 if (cursorPos < chatText.Length)
                 {
                     if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
@@ -149,9 +161,14 @@ namespace PulsarModLoader.Chat.Extensions
                     }
                 }
             }
-            if (Input.GetKey(KeyCode.RightArrow) && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeRight)
+            if (
+                Input.GetKey(KeyCode.RightArrow)
+                && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeRight
+            )
             {
-                lastTimeRight += 30 /*(long)(1 / ((SystemInformation.KeyboardSpeed + 1) * 0.859375))*/;
+                lastTimeRight +=
+                    30 /*(long)(1 / ((SystemInformation.KeyboardSpeed + 1) * 0.859375))*/
+                ;
                 if (cursorPos > 0)
                 {
                     if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
@@ -192,9 +209,18 @@ namespace PulsarModLoader.Chat.Extensions
                 }
                 else
                 {
-                    if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow) ||
-                        (Input.GetKey(KeyCode.LeftArrow) && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeLeft) ||
-                        (Input.GetKey(KeyCode.RightArrow) && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeRight))
+                    if (
+                        Input.GetKeyDown(KeyCode.LeftArrow)
+                        || Input.GetKeyDown(KeyCode.RightArrow)
+                        || (
+                            Input.GetKey(KeyCode.LeftArrow)
+                            && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeLeft
+                        )
+                        || (
+                            Input.GetKey(KeyCode.RightArrow)
+                            && DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond > lastTimeRight
+                        )
+                    )
                     {
                         cursorPos2 = -1;
                         HandleArrows(__state);
@@ -213,7 +239,10 @@ namespace PulsarModLoader.Chat.Extensions
 
                 if (networkManager.CurrentChatText != null)
                 {
-                    if (TagFound(__state, networkManager, cursorPos) || TagFound(__state, networkManager, cursorPos2))
+                    if (
+                        TagFound(__state, networkManager, cursorPos)
+                        || TagFound(__state, networkManager, cursorPos2)
+                    )
                     {
                         __instance.ChatLabel.supportRichText = false;
                         __instance.ChatShadowLabel.supportRichText = false;
@@ -225,10 +254,16 @@ namespace PulsarModLoader.Chat.Extensions
                         __instance.ChatShadowLabel.supportRichText = true;
                         __instance.ChatShadow2Label.supportRichText = true;
                     }
-                    networkManager.CurrentChatText = networkManager.CurrentChatText.Insert(__state.Length - cursorPos, DateTime.Now.Millisecond >= 500 ? "|" : "'");
+                    networkManager.CurrentChatText = networkManager.CurrentChatText.Insert(
+                        __state.Length - cursorPos,
+                        DateTime.Now.Millisecond >= 500 ? "|" : "'"
+                    );
                     if (cursorPos2 != -1 && cursorPos2 != cursorPos)
                     {
-                        networkManager.CurrentChatText = networkManager.CurrentChatText.Insert(__state.Length - cursorPos2 + (cursorPos > cursorPos2 ? 1 : 0), DateTime.Now.Millisecond >= 500 ? "¦" : "'");
+                        networkManager.CurrentChatText = networkManager.CurrentChatText.Insert(
+                            __state.Length - cursorPos2 + (cursorPos > cursorPos2 ? 1 : 0),
+                            DateTime.Now.Millisecond >= 500 ? "¦" : "'"
+                        );
                     }
                 }
             }
@@ -259,38 +294,36 @@ namespace PulsarModLoader.Chat.Extensions
         //Fixes shadow in currently typing
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            /*
-            if (PLNetworkManager.Instance.IsTyping)
-			{
-				stringBuilder2.Append(PLLocalize.Localize("Say: ", false));
-				stringBuilder2.Append(PLNetworkManager.Instance.CurrentChatText);
-            */
             List<CodeInstruction> targetSequence = new List<CodeInstruction>()
             {
-                new CodeInstruction(OpCodes.Brfalse_S),
-                new CodeInstruction(OpCodes.Ldloc_S),
-                new CodeInstruction(OpCodes.Ldstr),
+                new CodeInstruction(OpCodes.Ldloc_S), // stringBuilder2 (any local, refine later)
+                new CodeInstruction(OpCodes.Ldstr, "Say: "),
                 new CodeInstruction(OpCodes.Ldc_I4_0),
-                new CodeInstruction(OpCodes.Call),
-                new CodeInstruction(OpCodes.Callvirt),
-                new CodeInstruction(OpCodes.Pop),
-                new CodeInstruction(OpCodes.Ldloc_S),
-                new CodeInstruction(OpCodes.Ldsfld),
-                new CodeInstruction(OpCodes.Ldfld)
+                new CodeInstruction(
+                    OpCodes.Call,
+                    AccessTools.Method(
+                        typeof(PLLocalize),
+                        "Localize",
+                        new[] { typeof(string), typeof(bool) }
+                    )
+                ),
             };
 
-            /*
-            if (PLNetworkManager.Instance.IsTyping)
-			{
-				stringBuilder2.Append(PLLocalize.Localize("Say: ", false));
-				stringBuilder2.Append(HarmonyColoredMessage.RemoveColor(PLNetworkManager.Instance.CurrentChatText));
-            */
             List<CodeInstruction> injectedSequence = new List<CodeInstruction>()
             {
-                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(HarmonyColoredMessage), "RemoveColor"))
+                new CodeInstruction(
+                    OpCodes.Call,
+                    AccessTools.Method(typeof(HarmonyColoredMessage), "RemoveColor")
+                ),
             };
 
-            return PatchBySequence(instructions, targetSequence, injectedSequence, PatchMode.AFTER, CheckMode.NEVER);
+            return PatchBySequence(
+                instructions,
+                targetSequence,
+                injectedSequence,
+                patchMode: PatchMode.AFTER,
+                checkMode: HarmonyHelpers.CheckMode.NONNULL
+            );
         }
     }
 }
