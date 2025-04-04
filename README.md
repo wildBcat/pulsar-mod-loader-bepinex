@@ -50,3 +50,65 @@ Optionally remove `PulsarModLoader.dll` and `Assembly-CSharp.dll.bak` from `PULS
 ## Creating Mods
 
 [Check out the wiki for basic instructions on creating mods.](https://github.com/PULSAR-Modders/pulsar-mod-loader/wiki/Creating-Mods)
+
+# Pulsar Mod Loader (Fork)
+
+A fork of Pulsar Mod Loader (PML) for *PULSAR: Lost Colony*, updated to work with modern game versions and Harmony 2.9.0.0. This version fixes IL mismatches and reduces debug logging for a cleaner experience.
+
+## Features
+- **Updated Compatibility:** Aligns with *PULSAR*’s Unity 2020.3.25 IL (as of March 2025).
+- **Harmony 2.9.0.0:** Matches BepInEx-friendly Harmony for broader mod support.
+- **Lean Logging:** Minimized debug output (e.g., IL dumps) while keeping essentials.
+- **Mod Support:** Loads PML mods from `Mods/` with the in-game menu intact.
+
+## Changes from Original
+- Forked from PML v0.12.3.31.
+- Updated transpilers (e.g., `AllowPMLRPCPatch`, `HarmonyHandleChat`) to match current game IL.
+- Removed verbose IL and RPC logs for release polish.
+- Version bumped to 0.12.3.32.
+
+## Installation
+1. **Prerequisites:**
+   - *PULSAR: Lost Colony* installed via Steam.
+   - BepInEx 5.4.23.2 (via [Thunderstore](https://thunderstore.io/) or manual install).
+2. **Install PML:**
+   - Download `PulsarModLoader.dll` from the [Releases](insert-release-link-here) tab.
+   - Place it in `BepInEx/plugins/`.
+3. **Add Mods:**
+   - Place PML mods (e.g., `Max_Players.dll`) in `Mods/` (create if missing).
+
+**Structure:**
+
+PULSARLostColony/
+├── BepInEx/
+│   ├── plugins/
+│   │   ├── PulsarModLoader.dll
+│   └── ...
+├── Mods/
+│   └── YourPMLMod.dll
+└── ...
+
+## Usage
+- Launch the game via Steam.
+- Access the PML menu in-game (default: `F5`—check keybinds if needed).
+- Check `BepInEx/LogOutput.log` for load confirmation.
+
+## Compatibility
+- Tested with `Max_Players`, `HUD Warptimer`, `RainbowLight` on *PULSAR* (March 2025).
+- Works standalone or with `BepinexPMLBridge` for BepInEx mod support.
+
+## Building
+- Clone this repo.
+- Open `PulsarModLoader.csproj` in Visual Studio.
+- References:
+  - `BepInEx.dll` (from `BepInEx/core/`)
+  - `UnityEngine.dll` (from game root)
+  - `Harmony.dll` (2.9.0.0 via NuGet or manual)
+- Build and copy `PulsarModLoader.dll` to `BepInEx/plugins/`.
+
+## Credits
+- Original: [PULSAR-Modders/pulsar-mod-loader](https://github.com/PULSAR-Modders/pulsar-mod-loader).
+- Forked and updated with help from Grok (xAI).
+
+## Issues
+- Report bugs or IL mismatches in the [Issues](https://github.com/wildBcat/pulsar-mod-loader-revised/issues) tab.
